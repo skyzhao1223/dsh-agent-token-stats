@@ -1,0 +1,8 @@
+# dsh-agent-token-stats bundle layer.
+# One row, two halves: the host half registers /agent-token-stats/data and
+# /agent-token-stats/export on the profile webServer and runs the log scanners;
+# the browser half is discovered from this package's dsh.client declaration
+# and registers the "Token 用量" sidebar panel + main-slot dashboard.
+- insert:
+    - id: agent-token-stats
+      name: 'dsh-agent-token-stats'

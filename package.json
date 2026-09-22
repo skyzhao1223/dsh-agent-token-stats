@@ -1,0 +1,50 @@
+{
+  "name": "dsh-agent-token-stats",
+  "version": "1.0.0",
+  "description": "Cross-agent local LLM token usage dashboard for the DSH web GUI: scans Claude Code / OpenCode / Cursor IDE / DSH / OpenClaw / QClaw / CodeWhale / WorkBuddy / WPS Claude / Hermes logs (plus Codex/Gemini/Cline/Pi parsers on standby), keeps a persistent ratchet ledger in ~/.agent-token-stats, and serves a sidebar analytics panel with cache-hit rate, cost estimation, period comparison, day drill-down and CSV export.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skyzhao1223/dsh-agent-token-stats.git"
+  },
+  "homepage": "https://github.com/skyzhao1223/dsh-agent-token-stats#readme",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "token-usage",
+    "dashboard",
+    "llm-cost",
+    "cache-hit-rate",
+    "cross-agent"
+  ],
+  "engines": {
+    "dsh": ">=0.1.5-rc.0"
+  }
+}
