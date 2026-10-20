@@ -9,7 +9,7 @@ assert.ok(Array.isArray(host.inject) && host.inject.includes('shell') && host.in
 const code = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
 let loaded = null
 const win = { __ModuleLoader__: { load(x) { loaded = x } }, innerWidth: 1440, innerHeight: 900, setInterval: () => 0, clearInterval: () => {} }
-const fakeReact = { createElement: () => ({}), useState: v => [v, () => {}], useEffect: () => {}, useCallback: f => f, useMemo: f => { try { return f() } catch { return null } } }
+const fakeReact = { createElement: () => ({}), useState: v => [v, () => {}], useEffect: () => {}, useCallback: f => f, useRef: v => ({ current: v }), useMemo: f => { try { return f() } catch { return null } } }
 const req = n => { if (n === 'react') return fakeReact; throw new Error('unexpected require: ' + n) }
 new Function('window', 'require', code)(win, req)
 assert.equal(loaded.id, 'dsh-agent-token-stats', 'bundle id mismatch')

@@ -14,3 +14,9 @@ jobs:
           node --check lib/client.js
       - name: Smoke test
         run: node scripts/smoke.mjs
+      - name: Instant cold open (ledger snapshot)
+        run: node scripts/verify-cold-snapshot.mjs
+      - name: Pricing, currency and reasoning tiers
+        run: node scripts/verify-pricing.mjs
+      - name: Client UX (skeleton, filters, drill-down, a11y)
+        run: node scripts/verify-ux.mjs
