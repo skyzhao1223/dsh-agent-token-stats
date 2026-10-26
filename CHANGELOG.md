@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.2.1 (2026-10-26)
+
+### Fixed
+- **OpenCode query fallback chain** (issue #3): on hosts where the legacy+new UNION query errors or returns empty (sqlite/schema variants), the collector degrades to legacy-only then new-only instead of reporting zero records. The union stays the first candidate, so freeze-point migrations keep full coverage.
+- **Ledger backup rotation**: saves keep the previous file as `ledger.prev.json` (rotated at most hourly), guarding against corruption or multi-instance overwrite races.
+
+### Docs
+- README no longer implies npm availability (publish pending 2FA); GitHub install is the documented path.
+
 ## v1.2.0 (2026-10-20)
 
 ### Fixed
