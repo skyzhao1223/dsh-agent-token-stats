@@ -68,7 +68,14 @@ function makeRuntime() {
     return { type: type, props: merged }
   }
 
+  // Compatibility adapter only. Error-boundary correctness is covered separately
+  // by scripts/verify-client-react.mjs with the actual React reconciler.
+  class Component {
+    constructor(props) { this.props = props; this.state = {} }
+    setState(next) { this.state = Object.assign({}, this.state, next); dirty = true; if (!rendering) schedule() }
+  }
   const React = {
+    Component: Component,
     Fragment: 'Fragment',
     createElement: createElement,
     useState: function (init) {
@@ -158,6 +165,16 @@ function makeRuntime() {
 
   function expand(node, path) {
     if (node === null || node === undefined || typeof node !== 'object') return node
+    if (typeof node.type === 'function' && node.type.prototype instanceof Component) {
+      const s = store(path)
+      if (!s.instance || !(s.instance instanceof node.type)) s.instance = new node.type(node.props)
+      s.instance.props = node.props
+      try { return expand(s.instance.render(), path + '/class') } catch (error) {
+        if (typeof node.type.getDerivedStateFromError !== 'function') throw error
+        s.instance.state = Object.assign({}, s.instance.state, node.type.getDerivedStateFromError(error))
+        return expand(s.instance.render(), path + '/class')
+      }
+    }
     if (typeof node.type === 'function') return expand(renderComp(node.type, node.props, path), path)
     const kids = node.props.children || []
     const next = []
@@ -775,7 +792,7 @@ async function main() {
       const meta = byClass(t, 'lts-meta')[0]
       assert.equal(textOf(meta).indexOf('后台扫描中'), -1, 'meta carries no scan copy')
       assert.equal(byClass(meta, 'lts-status').length, 0, 'the strip is not nested inside the meta line')
-      assert.equal(byClass(t, 'lts-status').length, 1, 'exactly one scan strip in the tree')
+      assert.equal(byClass(t, 'lts-status').filter(function (n) { return textOf(n).indexOf('后台扫描中') !== -1 }).length, 1, 'exactly one scan strip (coverage has its own status region)')
     })
   }
 

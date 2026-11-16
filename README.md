@@ -14,7 +14,7 @@ dsh plugin --profile web add github:skyzhao1223/dsh-agent-token-stats
 # then restart: dsh web
 ```
 
-Requires system `sqlite3`, `jq`, and `zstd` (macOS: `brew install zstd`). Host: DSH >= 0.1.5-rc.
+Requires system `sqlite3`, `jq`, and `zstd` (macOS: `brew install zstd`). Host: DSH >= 0.2.2-rc.3 (verified owner-admission API). Older hosts are not given an authentication bypass.
 
 ## Screenshots
 
@@ -28,7 +28,7 @@ Requires system `sqlite3`, `jq`, and `zstd` (macOS: `brew install zstd`). Host: 
 
 - **Metrics**: input / output / reasoning / cache read / cache write split, cache-hit rate, request counts, reported cost vs. estimated cost (built-in reference price list, never mixed)
 - **Views**: overview cards with period-over-period deltas, vendor & prompt-composition donuts (hover + click-to-filter), stacked trend chart (hover tooltip + click day drill-down), activity heatmap (click drill-down), model detail table (sort / search / expand daily sparkline / totals footer), period comparison, agent comparison, session explorer, source status with schema-drift sentinel
-- **Persistence**: `~/.agent-token-stats/ledger.json` — ratchet-merged per source × model × day; rescans never double-count; history survives source-log deletion
+- **Persistence**: `~/.agent-token-stats/ledger.json` — ratchet-merged per source × model × day; identical rescans do not double-count and historical aggregates survive source-log deletion. This is not a per-message event ledger: after source log rotation, new usage below the old aggregate high-water mark may not be recognized until that mark is exceeded.
 - **Reports**: weekly / monthly Markdown download; CSV export
 - **Sticky toolbar**: source chips, time range, vendor select, model search, active-filter summary with one-click clear; on the Sessions/Sources tabs it explains that filters do not apply there instead of showing dead controls
 - **Loading & freshness**: real skeleton first paint, a scanning strip that says the ledger snapshot is showing, and a relative "updated N minutes ago" clock (auto-refresh is silent, so the button never flickers)
@@ -71,13 +71,19 @@ Requires system `sqlite3`, `jq`, and `zstd` (macOS: `brew install zstd`). Host: 
 ## Architecture
 
 One bundle row, two halves:
-- **Host** (`lib/index.js`, injects `shell` + `webServer`): signature-based incremental scanners, ledger, pricing, and routes `GET /agent-token-stats/{data,export,sessions,report,quota}` (loopback, Origin-checked)
+- **Host** (`lib/index.js`, injects `shell`, `webServer` and `connection`): signature-based incremental scanners with bounded concurrency, locked ledger, pricing, and owner-authenticated routes `GET /agent-token-stats/{data,sessions,report,quota}` and `POST /agent-token-stats/export`. Same-origin checks supplement, rather than replace, DSH credential admission.
 - **Client** (`lib/client.js`, `dsh.client` web bundle): sidebar panel + main-slot dashboard, plain `React.createElement`, no build step needed for edits
 
 ## Development
 
 ```sh
 node --check lib/index.js && node --check lib/client.js
+npm ci --ignore-scripts
+npm test                              # isolated regressions, no operator HOME mutation
+node scripts/verify-host-regression.mjs # real SQLite + multi-process locking + full-route auth
+node scripts/verify-client-react.mjs    # actual ReactDOM/jsdom, six tabs + recovery boundary
+python3 scripts/verify-traffic.py        # isolated raw archive/upsert/failure tests
+node scripts/verify-host-ledger-diff.mjs --ledger /path/ledger.json # read-only audit
 node scripts/smoke.mjs
 node scripts/verify-cold-snapshot.mjs   # 秒级:冷启动首屏必须来自磁盘台账且字段同构
 node scripts/verify-instant-open.mjs    # 真实 HOME:冷/热/手动刷新都必须瞬时返回(后台扫描约 2 分钟)
@@ -88,6 +94,23 @@ node scripts/verify-ux.mjs              # 秒级:客户端结构级回归(骨架
 
 > `verify-ux.mjs` 用自带的最小 React 垫片把 Dashboard 真渲染一遍再断言结构,所以它验证的是**结构与交互**,不是视觉效果——配色、间距、真实对比度仍需在浏览器里人工确认。可用 `LTS_CLIENT=./some-copy.js node scripts/verify-ux.mjs` 指向变异副本,确认「把功能删掉断言真的会挂」。
 
-Maintenance: edit source → `dsh plugin --profile web update dsh-agent-token-stats` → restart `dsh web`.
+## Reliability and measurement boundaries
+
+- **Messages are not API requests.** An assistant bubble can be a tool event, reasoning chunk or streamed part. Cursor fallback counts are assistant messages unless a stable request ID proves distinct requests. Local missing token values are unknown, not measured zero. No claim that usage necessarily moved to a cloud service is made from empty local fields alone.
+- **Coverage is part of the result.** A numeric token subtotal only includes available fields. Counts from heterogeneous sources are not a comparable billed-request total. Reported cost and reference estimates are separate; estimates are not subscription invoices.
+- **History is preserved.** Reliability upgrades do not rewrite the existing ledger in place to change historical count semantics. Use the read-only audit/difference tool first; legacy totals with uncertain semantics remain explicitly disclosed.
+- **GitHub traffic is not installs.** The author-side `scripts/traffic-snapshot.py` archives three validated GitHub responses (repository, clones, views), their daily series and UTC timestamps. Same-day samples replace rather than duplicate CSV rows; failed responses append nothing. Rolling windows overlap and must never be added together or divided into daily installation counts. This script is not executed by the plugin and introduces no runtime telemetry.
+- **Platform support:** source scanners are currently macOS-oriented. Unsupported platforms and missing executables are disclosed by diagnostics; a green JS test does not establish Windows/Linux source compatibility.
+- **Ledger locking:** commits acquire `.ledger.lock` and reload disk state before merging. Backups rotate by the backup timestamp, not the frequently updated primary file. Invalid primaries fall back to a validated backup and preserve corruption evidence. Dead/orphan locks are not automatically stolen (to avoid deleting another writer's newly acquired lock); a lock timeout requires checking the recorded owner/PID and confirming no writer is alive before manual recovery. Failure to recover a ledger is reported rather than replacing it with an empty one.
+
+## Safe publication
+
+The npm package has **not yet been published**. Use the GitHub installation above until availability is verified. Downloads on npm, when available, count download events, not installed users.
+
+The manual `publish.yml` workflow is designed for [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/): bind the exact GitHub owner/repository/workflow and `npm-release` environment in npm, and protect that GitHub environment with approval. First publication/package provisioning may still need the owner's local interactive `npm publish` browser/passkey authentication. No reusable publish token is stored in this project. **Revoke any token previously pasted into chat; do not share passkeys, tokens, OTPs or recovery codes with an agent.** Workflow dispatch alone does not make a package available until npm trust is configured and publication succeeds.
+
+## Applying updates
+
+Use the running Harness plugin manager to update an installed bundle. Whether a change is applied live is determined by its installation result; do not assume a watcher is active. UI updates need a browser refresh unless an active rebuild/HMR chain is verified. Host updates must be reloaded through the supported manager path or, when it reports restart required, on the next restart. Editing a `link:` source file alone does not prove running Host code changed.
 
 MIT © skyzhao1223

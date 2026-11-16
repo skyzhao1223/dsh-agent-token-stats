@@ -1,8 +1,15 @@
 // 回归验证:面板打开(冷/热)必须立即返回,重扫只能在后台跑。
 // 用一个最小 host 桩 + 真实 shell 驱动 lib/index.js,不依赖 DSH 运行时。
-// 用法:node scripts/verify-instant-open.mjs   (会用真实 HOME 读日志,后台扫描约 1~2 分钟)
+// 用法:node scripts/verify-instant-open.mjs (仅fixture HOME，不读写现有用户账)
 import { spawn } from 'node:child_process'
 import assert from 'node:assert'
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+const home = mkdtempSync(join(tmpdir(), 'ats-instant-'))
+mkdirSync(join(home, '.agent-token-stats'))
+writeFileSync(join(home, '.agent-token-stats/ledger.json'), JSON.stringify({version:1,updatedAt:1700000000000,rows:{k:{a:'dsh',p:'p',v:'v',m:'m',d:'2026-11-16',n:1,i:1}},projects:{},sources:{dsh:{records:1}}}))
+process.env.HOME = home
 
 const host = await import(new URL('../lib/index.js', import.meta.url))
 
@@ -31,6 +38,7 @@ function killScans() {
 
 const routes = new Map()
 const ctx = {
+  connection: { admit: () => ({ peer: { principal: { kind: 'owner' } } }) },
   shell: {
     resolve(spec) { return spec },
     async execute(spec) { const r = await runShell(spec); return { result: async () => r } }

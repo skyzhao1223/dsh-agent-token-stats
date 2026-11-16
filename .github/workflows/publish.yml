@@ -1,0 +1,23 @@
+name: Publish npm (manual, trusted publisher)
+on:
+  workflow_dispatch:
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm-release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@11.6.2
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm pack --dry-run
+      # Requires an npm Trusted Publisher bound to this exact owner/repo/workflow
+      # and environment. No persistent NPM_TOKEN and no bypass-2FA token.
+      - run: npm publish --access public --provenance

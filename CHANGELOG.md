@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.3.0 — Reliability and measurement boundaries (2026-11-16)
+
+- Historical count interpretations are explicitly unverified: assistant bubbles must not be described as billed API calls, and empty local usage does not establish a cloud migration. Existing historical totals are not destructively recomputed.
+- OpenCode queries inspect available tables/columns and deduplicate IDs instead of using a global legacy timestamp cutover. Malformed or unsupported schemas surface diagnostics.
+- Ledger storage is moved to a cross-process locked, atomic commit with re-read before reduction, independent backup timing, validated recovery and retained corruption evidence.
+- Owner authentication is required on custom HTTP routes; Origin checks alone are not authentication. Minimum DSH version is tightened to the verified connection-admission API.
+- Coverage, source freshness and last successful data are disclosed; missing token usage is labelled unknown rather than measured zero.
+- Panel-level React error boundary and real ReactDOM/jsdom regressions supplement the older structure-only harness; tests do not scan or mutate the operator's HOME.
+- GitHub traffic archiving validates all API responses, saves raw daily series, deduplicates same-day snapshots and rejects partial failures. Traffic and npm download events are not installation-user counts.
+- npm trusted-publisher workflow is manual and requires owner-side npm/GitHub configuration. No credential was used or embedded and no npm publication was performed.
+
+**Correction to older entries:** v1.2.0's “requests recovered” statement actually counted assistant messages for fallback rows, not verified API requests; “usage moved to the cloud” was an inference, not a verified fact. v1.2.1's backup did not resolve cross-instance lost updates and its interval condition inspected the primary file instead of the backup. This release addresses those limitations without rewriting legacy rows.
+
 ## v1.2.1 (2026-10-26)
 
 ### Fixed

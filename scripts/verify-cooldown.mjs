@@ -46,6 +46,7 @@ function runShell(spec) {
 
 const routes = new Map()
 const ctx = {
+  connection: { admit: () => ({ peer: { principal: { kind: 'owner' } } }) },
   shell: { resolve(s) { return s }, async execute(s) { const r = await runShell(s); return { result: async () => r } } },
   webServer: { register(route) { routes.set(route.path, route.handler); return function () { routes.delete(route.path) } } },
   effect(fn) { const d = fn(); return function () { if (typeof d === 'function') d() } }

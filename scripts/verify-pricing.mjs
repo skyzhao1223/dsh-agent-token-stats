@@ -9,6 +9,8 @@ import { join } from 'node:path'
 import assert from 'node:assert'
 
 const CHILD = process.argv[2] === 'child'
+const now = new Date()
+const MONTH = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0')
 
 function setupFixture(pricing) {
   const root = mkdtempSync(join(tmpdir(), 'ats-price-'))
@@ -16,13 +18,14 @@ function setupFixture(pricing) {
   mkdirSync(join(home, '.agent-token-stats'), { recursive: true })
   writeFileSync(join(home, '.agent-token-stats/pricing.json'), JSON.stringify(pricing))
   const rows = {
-    'a|1': { a: 'dsh', p: 'deepseek', v: 'deepseek', m: 'deepseek/deepseek-v4.1-flash', d: '2026-10-18', n: 1, i: 1000000, o: 0, r: 0, cr: 0, cw: 0, tt: 0, c: 0 },
-    'a|2': { a: 'dsh', p: 'deepseek', v: 'deepseek', m: 'deepseek/deepseek-v4.1-flash', d: '2026-10-17', n: 1, i: 0, o: 0, r: 1000000, cr: 0, cw: 0, tt: 0, c: 0 },
-    'a|3': { a: 'dsh', p: 'wps-gateway', v: 'wps', m: 'gateway-model-x', d: '2026-10-16', n: 1, i: 1000000, o: 0, r: 0, cr: 0, cw: 0, tt: 0, c: 0 },
-    'a|4': { a: 'claude-code', p: 'anthropic', v: 'anthropic', m: 'claude-opus-4-7', d: '2026-10-15', n: 1, i: 1000000, o: 0, r: 0, cr: 0, cw: 0, tt: 0, c: 0 },
-    'a|5': { a: 'dsh', p: 'unknown', v: 'other', m: 'mystery/x', d: '2026-10-14', n: 1, i: 1000000, o: 0, r: 0, cr: 0, cw: 0, tt: 0, c: 0 },
-    'a|6': { a: 'opencode', p: 'openai', v: 'openai', m: 'gpt-5-mini', d: '2026-10-13', n: 1, i: 0, o: 0, r: 0, cr: 0, cw: 0, tt: 0, c: 1 }
+    'a|1': { a: 'dsh', p: 'deepseek', v: 'deepseek', m: 'deepseek/deepseek-v4.1-flash', d: MONTH + '-18', n: 1, i: 1000000, o: 0, r: 0, cr: 0, cw: 0, tt: 0, c: 0 },
+    'a|2': { a: 'dsh', p: 'deepseek', v: 'deepseek', m: 'deepseek/deepseek-v4.1-flash', d: MONTH + '-17', n: 1, i: 0, o: 0, r: 1000000, cr: 0, cw: 0, tt: 0, c: 0 },
+    'a|3': { a: 'dsh', p: 'wps-gateway', v: 'wps', m: 'gateway-model-x', d: MONTH + '-16', n: 1, i: 1000000, o: 0, r: 0, cr: 0, cw: 0, tt: 0, c: 0 },
+    'a|4': { a: 'claude-code', p: 'anthropic', v: 'anthropic', m: 'claude-opus-4-7', d: MONTH + '-15', n: 1, i: 1000000, o: 0, r: 0, cr: 0, cw: 0, tt: 0, c: 0 },
+    'a|5': { a: 'dsh', p: 'unknown', v: 'other', m: 'mystery/x', d: MONTH + '-14', n: 1, i: 1000000, o: 0, r: 0, cr: 0, cw: 0, tt: 0, c: 0 },
+    'a|6': { a: 'opencode', p: 'openai', v: 'openai', m: 'gpt-5-mini', d: MONTH + '-13', n: 1, i: 0, o: 0, r: 0, cr: 0, cw: 0, tt: 0, c: 1 }
   }
+  for (const row of Object.values(rows)) Object.assign(row, { semanticVersion: 1, tokensKnown: true, knownTokenRecords: 1, unknownTokenRecords: 0 })
   writeFileSync(join(home, '.agent-token-stats/ledger.json'), JSON.stringify({ version: 1, updatedAt: 1700000000000, rows: rows, projects: {}, sources: {} }))
   process.env.HOME = home
   return home
@@ -34,7 +37,8 @@ async function ask(pricing) {
   const routes = new Map()
   const children = new Set()
   host.apply({
-    shell: {
+    connection: { admit: () => ({ peer: { principal: { kind: 'owner' } } }) },
+  shell: {
       resolve: s => s,
       async execute(s) {
         return {
@@ -94,17 +98,17 @@ for (const r of data.rows) (byModel[r.m] = byModel[r.m] || []).push(r)
 const find = (m, day) => byModel[m].filter(r => r.d === day)[0]
 
 // 1) 内置美元价 → 展示人民币(0.28 USD × 7.2)
-near(find('deepseek/deepseek-v4.1-flash', '2026-10-18').ec, 0.28 * 7.2, 'USD rule converted to CNY')
+near(find('deepseek/deepseek-v4.1-flash', MONTH + '-18').ec, 0.28 * 7.2, 'USD rule converted to CNY')
 // 2) 推理 token 按 rt(=输出价 0.42)计费,不再漏计
-near(find('deepseek/deepseek-v4.1-flash', '2026-10-17').ec, 0.42 * 7.2, 'reasoning billed at rt')
+near(find('deepseek/deepseek-v4.1-flash', MONTH + '-17').ec, 0.42 * 7.2, 'reasoning billed at rt')
 // 3) 用户规则自带 CNY 单位 → 不做换算
-near(find('gateway-model-x', '2026-10-16').ec, 2, 'CNY-denominated rule must not be converted')
+near(find('gateway-model-x', MONTH + '-16').ec, 2, 'CNY-denominated rule must not be converted')
 // 4) 细分 pattern 优先:claude-opus(15) 不能被 claude(3) 兜底吃掉
-near(find('claude-opus-4-7', '2026-10-15').ec, 15 * 7.2, 'specific pattern must win')
+near(find('claude-opus-4-7', MONTH + '-15').ec, 15 * 7.2, 'specific pattern must win')
 // 5) 未命中规则 = 0(不瞎猜)
-assert.equal(find('mystery/x', '2026-10-14').ec, 0, 'unmatched model must estimate 0')
+assert.equal(find('mystery/x', MONTH + '-14').ec, 0, 'unmatched model must estimate 0')
 // 6) 上报费用按美元换算,且不再另行估算
-const rep = find('gpt-5-mini', '2026-10-13')
+const rep = find('gpt-5-mini', MONTH + '-13')
 near(rep.c, 7.2, 'reported USD converted to display')
 assert.equal(rep.ec, 0, 'reported rows must not add an estimate')
 // 7) 预算口径与展示币种一致(仅上报行,1 USD → 7.2)
