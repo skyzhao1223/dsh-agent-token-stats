@@ -5,7 +5,7 @@
 Local-first, cross-agent usage analytics inside **DeepSeek Harness**: model totals, cache-hit analysis, reported/estimated costs, trends and data-quality diagnostics — without a separate dashboard service or author-side runtime telemetry.
 
 [![CI](https://github.com/skyzhao1223/dsh-agent-token-stats/actions/workflows/ci.yml/badge.svg)](https://github.com/skyzhao1223/dsh-agent-token-stats/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/skyzhao1223/dsh-agent-token-stats)](https://github.com/skyzhao1223/dsh-agent-token-stats/releases)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ### 适合谁 / Who is it for?
@@ -19,6 +19,8 @@ Local-first, cross-agent usage analytics inside **DeepSeek Harness**: model tota
 No billed-request or complete-coverage claim is made. Source formats vary; capabilities are listed below. For other approaches, see the neutral [community alternatives](docs/ALTERNATIVES.md) comparison.
 
 ## Install
+
+> **v1.3.0 verification status:** local regression suites passed on macOS. GitHub-hosted runners could not start during release preparation, so cross-platform CI is pending and the formal Release remains a draft. See [release notes](docs/releases/v1.3.0.md).
 
 ```sh
 dsh plugin --profile web add github:skyzhao1223/dsh-agent-token-stats
