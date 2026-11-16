@@ -1,10 +1,22 @@
 # dsh-agent-token-stats
 
-Cross-agent local LLM token usage dashboard for DeepSeek Harness (web profile). 跨 Agent 的本地 token 用量看板。
+**一个 DSH 原生侧栏看板，把多个本地 Agent 的用量放到一起看。**
 
-Aggregates local conversation logs from **Claude Code, WPS Claude, OpenCode, DSH, OpenClaw, QClaw, CodeWhale, WorkBuddy, Cursor IDE and Hermes** (with **Codex CLI, Gemini CLI, Cline/Roo and Pi** parsers on standby, plus detection-only probes for Trae / Lingma / CodeGeeX / Comate / Ollama / AionUi / Copilot) into a persistent ratchet ledger, and renders a full analytics panel in the DSH web GUI sidebar.
+Local-first, cross-agent usage analytics inside **DeepSeek Harness**: model totals, cache-hit analysis, reported/estimated costs, trends and data-quality diagnostics — without a separate dashboard service or author-side runtime telemetry.
 
-聚合本机 10+ 个 AI 工具的对话日志到持久化台账(源日志删除后历史仍保留),在 DSH web 侧边栏提供完整分析面板。
+[![CI](https://github.com/skyzhao1223/dsh-agent-token-stats/actions/workflows/ci.yml/badge.svg)](https://github.com/skyzhao1223/dsh-agent-token-stats/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/skyzhao1223/dsh-agent-token-stats)](https://github.com/skyzhao1223/dsh-agent-token-stats/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+### 适合谁 / Who is it for?
+
+- 同时使用 Claude Code、OpenCode、Cursor、DSH 等工具，想按**模型跨 Agent 合并**观察用量的人。
+- 想看缓存命中率、日趋势、项目和会话差异，而不仅是一条总 token 数的人。
+- 希望统计在本地运行、历史聚合保留下来，并能分辨**实测 / 未知 / 参考估算**的人。
+
+**不是账单核对工具。** Assistant 消息不等于 API 请求；本地日志没上报 token 时显示未知；参考价格不代表订阅实际扣费。[统计边界](#reliability-and-measurement-boundaries) · [贡献指南](CONTRIBUTING.md) · [路线图](docs/ROADMAP.md) · [版本记录](CHANGELOG.md)
+
+No billed-request or complete-coverage claim is made. Source formats vary; capabilities are listed below. For other approaches, see the neutral [community alternatives](docs/ALTERNATIVES.md) comparison.
 
 ## Install
 
@@ -16,17 +28,40 @@ dsh plugin --profile web add github:skyzhao1223/dsh-agent-token-stats
 
 Requires system `sqlite3`, `jq`, and `zstd` (macOS: `brew install zstd`). Host: DSH >= 0.2.2-rc.3 (verified owner-admission API). Older hosts are not given an authentication bypass.
 
-## Screenshots
+## Preview
 
-![Overview dashboard](docs/screenshots/overview.png)
+The screenshots below use **synthetic demonstration data** rendered by the actual v1.3 client. They are not the author's private usage, real costs, or live-GUI acceptance evidence.
 
-![Trend analysis with day drill-down](docs/screenshots/trend.png)
+以下截图使用真实组件与**虚构演示数据**，不包含私人会话、项目路径或密钥，不代表真实账单。
 
-![Session explorer](docs/screenshots/sessions.png)
+![Overview dashboard — synthetic demo data](docs/screenshots/demo-overview.png)
+
+<details>
+<summary>趋势与数据质量 / Trends and data quality</summary>
+
+![Trend analysis — synthetic demo data](docs/screenshots/demo-trend.png)
+
+![Data source coverage — synthetic demo data](docs/screenshots/demo-sources.png)
+
+</details>
+
+## Source coverage / 数据源能力
+
+| Source | Adapter | What can be observed locally |
+| --- | --- | --- |
+| DSH / OpenCode | Parsed | Model/provider and available token splits; cache usage and reported cost when recorded |
+| Claude Code / WPS Claude | Parsed | Log usage fields; local gateways may omit token usage |
+| Cursor IDE | Parsed, partial | Reported usageData when available; assistant-message counts and recorded token fields; unattributed tokens stay unattributed |
+| OpenClaw / QClaw | Parsed | Available response usage in session logs |
+| CodeWhale / WorkBuddy / Hermes | Parsed | Available session/response counters, with source-specific limitations |
+| Codex CLI / Gemini CLI / Cline-Roo / Pi | Parsers included | Enabled when corresponding local logs exist; not all formats/platforms have been live-tested |
+| Trae / Lingma / CodeGeeX / Comate / Ollama / AionUi / Copilot | Detection/probes | **Not equivalent to token support**; presence or limited counts only |
+
+Coverage describes **parsed observations**, not completeness of the original logs. Primary development/testing platform: macOS. Linux source compatibility is partial and unverified; Windows scanning is not supported.
 
 ## Features
 
-- **Metrics**: input / output / reasoning / cache read / cache write split, cache-hit rate, request counts, reported cost vs. estimated cost (built-in reference price list, never mixed)
+- **Metrics**: available input / output / reasoning / cache read / cache write splits, cache-hit rate, known API requests and assistant-message counts shown separately, reported cost vs. reference estimates (never mixed). Missing fields and unverified legacy observations are disclosed.
 - **Views**: overview cards with period-over-period deltas, vendor & prompt-composition donuts (hover + click-to-filter), stacked trend chart (hover tooltip + click day drill-down), activity heatmap (click drill-down), model detail table (sort / search / expand daily sparkline / totals footer), period comparison, agent comparison, session explorer, source status with schema-drift sentinel
 - **Persistence**: `~/.agent-token-stats/ledger.json` — ratchet-merged per source × model × day; identical rescans do not double-count and historical aggregates survive source-log deletion. This is not a per-message event ledger: after source log rotation, new usage below the old aggregate high-water mark may not be recognized until that mark is exceeded.
 - **Reports**: weekly / monthly Markdown download; CSV export
@@ -86,7 +121,7 @@ python3 scripts/verify-traffic.py        # isolated raw archive/upsert/failure t
 node scripts/verify-host-ledger-diff.mjs --ledger /path/ledger.json # read-only audit
 node scripts/smoke.mjs
 node scripts/verify-cold-snapshot.mjs   # 秒级:冷启动首屏必须来自磁盘台账且字段同构
-node scripts/verify-instant-open.mjs    # 真实 HOME:冷/热/手动刷新都必须瞬时返回(后台扫描约 2 分钟)
+node scripts/verify-instant-open.mjs    # isolated fixture HOME: cold/hot/forced refresh regression
 node scripts/verify-cooldown.mjs        # fixture HOME:冷却期内不重扫、冷却后补扫不丢数(~90s)
 node scripts/verify-pricing.mjs         # 秒级:币种/fx 换算、规则币种、细分优先、推理计费、缺 fx 告警
 node scripts/verify-ux.mjs              # 秒级:客户端结构级回归(骨架/筛选器适用范围/下钻/toast/键盘/a11y/token 白名单)

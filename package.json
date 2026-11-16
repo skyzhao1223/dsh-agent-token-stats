@@ -18,7 +18,9 @@
     "cordis.patch.yml",
     "README.md",
     "CHANGELOG.md",
-    "SECURITY.md"
+    "SECURITY.md",
+    "CONTRIBUTING.md",
+    "docs"
   ],
   "dsh": {
     "bundle": {
